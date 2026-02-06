@@ -78,13 +78,46 @@ install_languages() {
 }
 
 install_shell() {
-    # Settings for zsh plugins are in .zshrc
-    brew tap homebrew/cask-fonts
-    brew install \
-        zsh-syntax-highlighting zsh-autosuggestions \
-        romkatv/powerlevel10k/powerlevel10k \
-        font-meslo-lg-nerd-font font-fira-code-nerd-font || true
+    info "Setting up Oh My Zsh environment..."
 
+    # 1. 安裝 Oh My Zsh (如果尚未安裝)
+    # 使用 --unattended 避免安裝後直接進入 zsh shell 中斷腳本
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        info "Installing Oh My Zsh..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    else
+        info "Oh My Zsh is already installed."
+    fi
+
+    # 定義 ZSH_CUSTOM 變數 (完全參照你提供的邏輯)
+    local _zsh_custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+    # 2. 安裝 Powerlevel10k (Oh My Zsh 方式)
+    if [ ! -d "$_zsh_custom/themes/powerlevel10k" ]; then
+        info "Cloning Powerlevel10k..."
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$_zsh_custom/themes/powerlevel10k"
+    else
+        info "Powerlevel10k already exists."
+    fi
+
+    # 3. 安裝 Plugins (安裝到 custom/plugins)
+    
+    # zsh-autosuggestions
+    if [ ! -d "$_zsh_custom/plugins/zsh-autosuggestions" ]; then
+        info "Cloning zsh-autosuggestions..."
+        git clone https://github.com/zsh-users/zsh-autosuggestions "$_zsh_custom/plugins/zsh-autosuggestions"
+    fi
+
+    # zsh-syntax-highlighting
+    if [ ! -d "$_zsh_custom/plugins/zsh-syntax-highlighting" ]; then
+        info "Cloning zsh-syntax-highlighting..."
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$_zsh_custom/plugins/zsh-syntax-highlighting"
+    fi
+
+    # 4. 安裝 Nerd Fonts (維持原本 Brew 方式，這是最快的方法)
+    brew install font-meslo-lg-nerd-font font-fira-code-nerd-font || true
+
+    # 5. 配置檔 Symlink
     mkdir -p ~/.config
     sym_link $ROOT_PATH/zsh/.zshrc ~/.zshrc
     sym_link $ROOT_PATH/zsh/.zfuncs ~/.zfuncs
@@ -125,7 +158,7 @@ install_tools() {
     brew tap hashicorp/tap
 
     brew install \
-        ripgrep fzf fd rg bat exa zoxide jq grex hashicorp/tap/vault \
+        ripgrep fzf fd rg bat eza zoxide jq grex hashicorp/tap/vault \
         zellij just \
         protobuf helm gh libpq google-cloud-sdk visual-studio-code \
         kubectl kubectx || true

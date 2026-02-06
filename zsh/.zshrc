@@ -1,11 +1,58 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
+# ==============================================================================
+# 1. P10k Instant Prompt (Must remain at the very top)
+# ==============================================================================
+# Enable Powerlevel10k instant prompt.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-# zsh configuration, static plugins
+# ==============================================================================
+# 2. Environment & Path Settings (Pre-OMZ)
+# ==============================================================================
+# Load Homebrew Environment first so plugins can detect installed tools
+eval $(/opt/homebrew/bin/brew shellenv)
+
+# Global Editors
+export EDITOR='vim'
+export KUBE_EDITOR='nvim'
+
+# FZF Configuration (Using ripgrep for better performance)
+export FZF_DEFAULT_COMMAND="rg --files --hidden --follow --glob '!.git'"
+
+# ==============================================================================
+# 3. Oh My Zsh Configuration
+# ==============================================================================
+export ZSH="$HOME/.oh-my-zsh"
+
+# Set Theme to Powerlevel10k
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# Plugins Configuration
+# Notes:
+# - zoxide: Replaces 'cd' (auto-initializes via plugin)
+# - fzf: Integrated fuzzy finder
+# - kubectl: Autocompletion and 'k' alias
+# - rust: Cargo/rustc autocompletion
+# - zsh-autosuggestions: Gray text suggestions based on history
+# - zsh-syntax-highlighting: Must be the last plugin in the list
+plugins=(
+    git
+    zoxide
+    fzf
+    kubectl
+    rust
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+)
+
+# Load Oh My Zsh
+source $ZSH/oh-my-zsh.sh
+
+# ==============================================================================
+# 4. User Configuration
+# ==============================================================================
+
+# --- History Settings ---
 HISTFILE=~/.zsh_history
 SAVEHIST=10000
 HISTSIZE=50000
@@ -15,105 +62,79 @@ setopt hist_ignore_dups       # ignore duplicated commands history list
 setopt hist_verify            # show command with history expansion to user before running it
 setopt share_history          # share command history data
 
-# load custom zsh things
+# --- Custom File Loaders ---
+# Load all custom .zsh files from ~/.zcustom
 for file in ~/.zcustom/*.zsh; do
     source "$file"
 done
 
-# #TODO figure out why these two settings are screwing with zellij
-# Environment / Global Settings
-#export EDITOR=vim
-export KUBE_EDITOR=nvim
-# Vim Mods https://dev.to/matrixersp/how-to-use-fzf-with-ripgrep-to-selectively-ignore-vcs-files-4e27 
-export FZF_DEFAULT_COMMAND="rg --files --hidden --follow --glob '!.git'"
-
-# Add Homebrew Prefixes as exports and homebrew path to $PATH
-eval $(/opt/homebrew/bin/brew shellenv)
-
-# PLUGINS (manually installed)
-local FZF_HOME=$HOMEBREW_PREFIX/opt/fzf
-[ -f $FZF_HOME/shell/completion.zsh ] && source $FZF_HOME/shell/completion.zsh
-[ -f $FZF_HOME/shell/key-bindings.zsh ] && source $FZF_HOME/shell/key-bindings.zsh
-
-local ZSH_HIGH_HOME=$HOMEBREW_PREFIX/share/zsh-syntax-highlighting
-[ -f $ZSH_HIGH_HOME/zsh-syntax-highlighting.zsh ] && source $ZSH_HIGH_HOME/zsh-syntax-highlighting.zsh
-
-local ZSH_AUTO=$HOMEBREW_PREFIX/share/zsh-autosuggestions
-[ -f $ZSH_AUTO/zsh-autosuggestions.zsh ] && source $ZSH_AUTO/zsh-autosuggestions.zsh
-
-# Shell Completions and Custom zsh functions 
-# in case of complaints:  https://github.com/zsh-users/zsh-completions/issues/680#issuecomment-612960481
-fpath=( 
-    ~/.zfuncs 
+# --- Functions & Completions ---
+# Add custom functions path
+fpath=(
+    ~/.zfuncs
     $HOMEBREW_PREFIX/share/zsh/site-functions
-    "${fpath[@]}" 
+    "${fpath[@]}"
 )
-autoload -Uz b64hex 
-autoload -Uz cargo-build-remote 
+
+# Autoload custom functions
+autoload -Uz b64hex
+autoload -Uz cargo-build-remote
 autoload -Uz cp-agence-remote
-autoload -Uz k8s-pod-bash 
-autoload -Uz k8s-pod-forcedelete 
+autoload -Uz k8s-pod-bash
+autoload -Uz k8s-pod-forcedelete
 
-#source <(kubectl completion zsh)
-source '/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc'
-source '/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc'
-# allow case-insensitive etc. can copy this later https://github.com/ohmyzsh/ohmyzsh/blob/master/lib/completion.zsh
-zstyle ":completion:*" menu yes select
-zstyle ":completion:*" matcher-list "" "m:{a-zA-Z}={A-Za-z}" "r:|=*" "l:|=* r:|=*"
-autoload -Uz compinit && compinit
+# --- External Tool Integrations (Manual Loading) ---
 
-# Key bindings 
+# Google Cloud SDK
+if [ -f "/opt/homebrew/share/google-cloud-sdk/path.zsh.inc" ]; then
+    source "/opt/homebrew/share/google-cloud-sdk/path.zsh.inc"
+    source "/opt/homebrew/share/google-cloud-sdk/completion.zsh.inc"
+fi
+
+# NVM (Node Version Manager)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+[ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+
+# --- Key Bindings ---
 bindkey "^ " autosuggest-accept
 bindkey "^[[1;3D" backward-word
 bindkey "^[[1;3C" forward-word
-# bindkey "^[a" beginning-of-line
-# bindkey "^[e" end-of-line
 
-# aliases
+# --- Aliases ---
 alias g="git"
 alias j="just"
 alias cat="bat -pp --theme 'Visual Studio Dark+'"
 alias catt="bat --theme 'Visual Studio Dark+'"
-alias ls="exa --group-directories-first --icons"
-alias ll="ls -l --git"
+
+# Modern 'ls' replacements using 'eza' (installed via your script)
+# Note: 'ls -l --git' is valid for eza, but not standard ls
+alias ls='eza --icons'
+alias ll="eza -l --git --icons"
 alias la="ll -a"
 
-# zfunc aliases
+# Function Aliases
 alias kpbash="k8s-pod-bash"
 alias kpfd="k8s-pod-forcedelete"
 alias cb-remote="cargo-build-remote"
-eval "$(zoxide init zsh)"
 
-# handle theme
-POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir go_version rust_version nix_shell vcs)
-POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status root_indicator history background_jobs ram load time)
-POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
-POWERLEVEL9K_PROMPT_ON_NEWLINE=true
-POWERLEVEL9K_RPROMPT_ON_NEWLINE=true
-
-# Visual customisation of the second prompt line
-# POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="╭"
-# POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="╰\uF460\uF460\uF460 "
-POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%{%F{249}%}\u250f"
-POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%{%F{249}%}\u2517\uf054%{%F{default}%} "
-
-# POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%f"
-#POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%{%B%F{black}%K{yellow}%} "$"%{%b%f%k%F{yellow}%} %{%f%}"
-POWERLEVEL9K_MODE="nerdfont-complete"
-source /opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme
-
+# --- Extra PATH Exports ---
 export WASMTIME_HOME="$HOME/.wasmtime"
 export PATH="$PATH:/$WASMTIME_HOME/bin"
-export PATH="$PATH:/usr/local/bin"
 export PATH="$PATH:/Users/teddylee/.foundry/bin"
-# temporary... alacritty is really lagging with updates
 export PATH="$PATH:/Applications/Alacritty.app/Contents/MacOS"
 export PATH="$PATH:/opt/homebrew/opt/libpq/bin"
 
-export NVM_DIR="$HOME/.nvm"
-    [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" # This loads nvm
-    [ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" # This loads nvm bash_completion
-
-
+# ==============================================================================
+# 5. Powerlevel10k Configuration (Must remain at the bottom)
+# ==============================================================================
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# Added by Antigravity
+export PATH="/Users/brianhuang/.antigravity/antigravity/bin:$PATH"
+export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"
+
+alias vi='nvim'
+alias vim='nvim'
+alias oldvim='/usr/bin/vim'
