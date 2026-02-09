@@ -5,16 +5,12 @@ ROOT_PATH=$(pwd -P)
 main() {
     downloader --check
 
-    get_arch
-    ARCH="$RETVAL"
-
     # setup_git
     # install_homebrew
     # install_languages
     install_shell
     # install_terminal
     # install_tools
-    # #NOTE terminal installation needs to be partially manual until alacritty is updated in homebrew for M1's 
 }
 
 setup_git() {
@@ -80,7 +76,7 @@ install_languages() {
 install_shell() {
     info "Setting up Oh My Zsh environment..."
 
-    # 1. 安裝 Oh My Zsh (如果尚未安裝)
+    # 1. install Oh My Zsh
     # 使用 --unattended 避免安裝後直接進入 zsh shell 中斷腳本
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         info "Installing Oh My Zsh..."
@@ -89,10 +85,10 @@ install_shell() {
         info "Oh My Zsh is already installed."
     fi
 
-    # 定義 ZSH_CUSTOM 變數 (完全參照你提供的邏輯)
+    # define ZSH_CUSTOM variable
     local _zsh_custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
-    # 2. 安裝 Powerlevel10k (Oh My Zsh 方式)
+    # 2. install Powerlevel10k (Oh My Zsh way)
     if [ ! -d "$_zsh_custom/themes/powerlevel10k" ]; then
         info "Cloning Powerlevel10k..."
         git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$_zsh_custom/themes/powerlevel10k"
@@ -100,7 +96,7 @@ install_shell() {
         info "Powerlevel10k already exists."
     fi
 
-    # 3. 安裝 Plugins (安裝到 custom/plugins)
+    # 3. install Plugins (install to custom/plugins)
     
     # zsh-autosuggestions
     if [ ! -d "$_zsh_custom/plugins/zsh-autosuggestions" ]; then
@@ -114,10 +110,10 @@ install_shell() {
         git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$_zsh_custom/plugins/zsh-syntax-highlighting"
     fi
 
-    # 4. 安裝 Nerd Fonts (維持原本 Brew 方式，這是最快的方法)
+    # 4. install Nerd Fonts (maintain original Brew method, this is the fastest way)
     brew install font-meslo-lg-nerd-font font-fira-code-nerd-font || true
 
-    # 5. 配置檔 Symlink
+    # 5. configuration file Symlink
     mkdir -p ~/.config
     sym_link $ROOT_PATH/zsh/.zshrc ~/.zshrc
     sym_link $ROOT_PATH/zsh/.zfuncs ~/.zfuncs
@@ -135,10 +131,6 @@ install_terminal() {
     sudo tic -xe alacritty,alacritty-direct /Applications/Alacritty.app/Contents/Resources/alacritty.info
     info "configuring terminal"
     sym_link $ROOT_PATH/.alacritty.yml ~/.alacritty.yml
-    # if [[ $ARCH == *"darwin"* ]] || [[ $ARCH == *"arm64"* ]]; then
-    #     info "macOs detected, 'open' alacritty in finder to seed permissions"
-    #     open /Applications
-    # fi
 }
 
 install_neovim() {
@@ -167,13 +159,8 @@ install_tools() {
 
     # # install google cloud components
     # gcloud components install gke-gcloud-auth-plugin
-    #
-    # # VsCode... legacy
-    # mkdir -p ~/Library/Application\ Support/Code/User
-    # cp -rf vscode/* ~/Library/Application\ Support/Code/User/
 
     sym_link $ROOT_PATH/zellij ~/.config/zellij
-    #sym_link $ROOT_PATH/.tmux.conf ~/.tmux.conf
 }
 
 uninstall_neovim() {
@@ -234,23 +221,6 @@ sym_link() {
     fi
     ln -sf "$1" "$2"
     info "Symlinked $1 to $2"
-}
-
-get_arch() {
-    local _ostype _cputype
-
-    if [ "$OSTYPE" == "linux-gnu" ]; then
-        _ostype=unknown-linux-gnu
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        _ostype=apple-darwin
-    else
-        err "OS $OSTYPE currently unsupported"
-    fi
-
-    _cputype=$(uname -m)
-    [ $_cputype == "x86_64" ] || [ $_cputype == "arm64" ] || err "CPU $_cputype currently unsupported"
-
-    RETVAL=$_cputype-$_ostype
 }
 
 downloader() {
