@@ -132,7 +132,6 @@ export PATH="$PATH:/opt/homebrew/opt/libpq/bin"
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # Added by Antigravity
-export PATH="/Users/brianhuang/.antigravity/antigravity/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"
 
 alias vi='nvim'
