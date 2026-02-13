@@ -103,7 +103,7 @@
     },
     {
         "key": "ctrl+x ctrl+s",
-        "command": "workbench.action.files.save",
+        "command": "workbench.action.files.save"
     },
     {
         "key": "ctrl+x 1",
@@ -229,5 +229,5 @@
         "key": "ctrl+x",
         "command": "ctrl+x",
         "when": "terminalFocus"
-    },
+    }
 ]
