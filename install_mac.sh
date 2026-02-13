@@ -161,6 +161,30 @@ install_tools() {
     # gcloud components install gke-gcloud-auth-plugin
 
     sym_link $ROOT_PATH/zellij ~/.config/zellij
+
+    # install docker
+    brew install docker
+    brew install docker-compose
+
+    # setup docker compose plugin (configure ~/.docker/config.json)
+    mkdir -p ~/.docker
+    [ ! -f ~/.docker/config.json ] && echo "{}" > ~/.docker/config.json
+
+    local _plugin_path="$(brew --prefix)/lib/docker/cli-plugins"
+    local _config_file="$HOME/.docker/config.json"
+
+    if check_cmd jq; then
+         # Add plugin path to cliPluginsExtraDirs if not present
+         jq --arg path "$_plugin_path" \
+            '.cliPluginsExtraDirs = ((.cliPluginsExtraDirs // []) + [$path] | unique)' \
+            "$_config_file" > "$_config_file.tmp" && mv "$_config_file.tmp" "$_config_file"
+         info "Updated docker config.json with cliPluginsExtraDirs"
+    else
+         echo "jq not found, skipping docker config update. Please install jq."
+    fi
+
+    # install colima
+    brew install colima
 }
 
 uninstall_neovim() {
