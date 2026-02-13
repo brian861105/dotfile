@@ -1,8 +1,99 @@
 {
+    // --- Your existing settings ---
     "terminal.integrated.fontFamily": "'0xProto Nerd Font Propo'",
     "editor.autoIndent": "full",
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
     "github.copilot.nextEditSuggestions.enabled": true,
     "git.blame.editorDecoration.enabled": true,
+    // --- General Editor Optimizations ---
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.stickyScroll.enabled": true, // Sticky scroll at the top, making it easier to see which function you're in
+    "editor.inlineSuggest.enabled": true,
+    "editor.bracketPairColorization.enabled": true, // Bracket pair colorization
+    "editor.guides.bracketPairs": "active",
+    "files.autoSave": "onFocusChange", // Auto-save when focus changes (recommended)
+    "workbench.list.smoothScrolling": true,
+    // --- Rust Settings (Requires rust-analyzer) ---
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer",
+        "editor.semanticHighlighting.enabled": true
+    },
+    "rust-analyzer.check.command": "clippy", // Use clippy instead of cargo check (more strict linting)
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.completion.autoimport.enable": true,
+    "rust-analyzer.inlayHints.typeHints.enable": true, // Show variable type hints
+    // --- Go Settings (Requires Go official extension) ---
+    "[go]": {
+        "editor.defaultFormatter": "golang.go",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always" // Automatically organize imports and remove unused ones on save
+        }
+    },
+    "go.useLanguageServer": true,
+    "go.lintTool": "golangci-lint",
+    "go.formatTool": "gofumpt", // More strict formatting tool than gofmt
+    "gopls": {
+        "ui.semanticTokens": true,
+        "formatting.gofumpt": true
+    },
+    // --- C# Settings (Requires C# Dev Kit) ---
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp"
+    },
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true, // Auto-import unimported namespaces
+    "csharp.formatter.enableEditorConfigSupport": true,
+    // --- Frontend Settings (JS/TS/React/Vue) ---
+    "editor.defaultFormatter": "esbenp.prettier-vscode", // Default to Prettier
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[vue]": {
+        "editor.defaultFormatter": "Vue.volar"
+    },
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "[css]": {
+        "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[scss]": {
+        "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact",
+        "vue"
+    ],
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "always" // Automatically fix ESLint errors on save
+    },
+    // Emmet enhancements (make writing HTML in React/TSX faster)
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact",
+        "typescript": "typescriptreact"
+    },
+    // Tailwind CSS Support
+    "tailwindCSS.emmetCompletions": true,
+    "tailwindCSS.includeLanguages": {
+        "typescriptreact": "html"
+    }
 }
