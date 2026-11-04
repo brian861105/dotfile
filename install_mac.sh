@@ -1,16 +1,24 @@
 #!/bin/bash
-set -e
-ROOT_PATH=$(pwd -P)
+set -euo pipefail
+ROOT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 
 main() {
-    downloader --check
+    local stage="${1:-shell}"
+    if [[ $# -gt 1 ]]; then
+        err "Usage: $0 [shell|tools|languages|neovim|git]"
+    fi
+    case "$stage" in
+        shell|tools|languages|neovim) ;;
+        git) setup_git; return ;;
+        -h|--help) printf 'Usage: %s [shell|tools|languages|neovim|git]\n' "$0"; return ;;
+        *) err "Unknown stage: $stage" ;;
+    esac
 
-    # setup_git
-    # install_homebrew
-    # install_languages
-    install_shell
-    # install_terminal
-    # install_tools
+    require curl
+    require git
+    install_homebrew
+    brew update
+    "install_$stage"
 }
 
 setup_git() {
@@ -20,7 +28,6 @@ setup_git() {
     git config --global alias.com commit
     git config --global alias.st status
     git config --global credential.helper osxkeychain
-    git config --global http.postBuffer 157286400
 
     # Updated git requires a way to resolve divergent, this makes it so divergent branch pulls
     # will only fast foward.  A diveragent branch will fail.  A normal thing to do is to pull a
@@ -28,49 +35,76 @@ setup_git() {
     # remote was force pushed with a missing ancestor from your local copy.
     git config --global pull.ff only
 
-    if [ -z "$(git config --global --get user.email)" ]; then
+    if [ -z "$(git config --global --get user.name)" ]; then
+        local user_name
         echo "Git user.name:"
         read -r user_name
+        git config --global user.name "$user_name"
+    fi
+    if [ -z "$(git config --global --get user.email)" ]; then
+        local user_email
         echo "Git user.email:"
         read -r user_email
-        git config --global user.name "$user_name"
         git config --global user.email "$user_email"
     fi
 }
 
 install_homebrew() {
-    if ! which /opt/homebrew/bin/brew >/dev/null 2>&1; then
-        info "Installing homebrew"
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+    if ! check_cmd brew; then
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -x /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        else
+            info "Installing homebrew"
+            local installer
+            installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)
+            /bin/bash -c "$installer"
+            if [[ -x /opt/homebrew/bin/brew ]]; then
+                eval "$(/opt/homebrew/bin/brew shellenv)"
+            else
+                eval "$(/usr/local/bin/brew shellenv)"
+            fi
+        fi
     fi
-    eval $(/opt/homebrew/bin/brew shellenv)
+    eval "$(brew shellenv)"
+}
+
+install_packages() {
+    brew install "$@"
+    brew upgrade "$@"
 }
 
 install_languages() {
-    brew install go lua node nvm yarn luarocks || true
+    install_packages --formula go lua node yarn luarocks sccache
+    # nvm upstream does not support Homebrew installation.
+    local nvm_installer
+    nvm_installer=$(curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh)
+    NVM_DIR="${NVM_DIR:-$HOME/.nvm}" PROFILE=/dev/null bash -c "$nvm_installer"
 
-    if ! which rustup >/dev/null 2>&1; then
-        curl https://sh.rustup.rs -sSf | sh -s -- -y
-    	source ~/.cargo/env
-
-        # Rust toolchains and commands
-        rustup default stable
-        rustup update nightly
-        rustup component add clippy
-        rustup target add \
-            aarch64-apple-ios x86_64-apple-ios aarch64-apple-darwin \
-            aarch64-linux-android armv7-linux-androideabi i686-linux-android \
-            wasm32-wasi wasm32-unknown-unknown wasm32-unknown-unknown --toolchain nightly
-    else
-        rustup update
+    if ! check_cmd rustup; then
+        local installer
+        installer=$(curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs)
+        sh -c "$installer" -- -y --default-toolchain stable
+        source "$HOME/.cargo/env"
     fi
 
-    # Rust specific tooling
-	brew install sccache
-    cargo install cargo-remote cargo-wasi
+    rustup update stable
+    rustup update nightly
+    rustup default stable
+    rustup component add clippy --toolchain stable
+    local toolchain
+    for toolchain in stable nightly; do
+        rustup target add \
+            aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios \
+            aarch64-apple-darwin x86_64-apple-darwin \
+            aarch64-linux-android armv7-linux-androideabi i686-linux-android \
+            wasm32-wasip1 wasm32-unknown-unknown --toolchain "$toolchain"
+    done
+    # Native Cargo supports WASI; cargo-wasi is archived.
+    cargo +stable install --locked cargo-remote
 
-    # Custom global settings, requires cachepot
-    sym_link $ROOT_PATH/cargo-config.toml ~/.cargo/config.toml
+    sym_link "$ROOT_PATH/cargo-config.toml" "$HOME/.cargo/config.toml"
 }
 
 install_shell() {
@@ -80,9 +114,11 @@ install_shell() {
     # 使用 --unattended 避免安裝後直接進入 zsh shell 中斷腳本
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         info "Installing Oh My Zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        local installer
+        installer=$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)
+        sh -c "$installer" "" --unattended
     else
-        info "Oh My Zsh is already installed."
+        git -C "$HOME/.oh-my-zsh" pull --ff-only
     fi
 
     # define ZSH_CUSTOM variable
@@ -93,7 +129,7 @@ install_shell() {
         info "Cloning Powerlevel10k..."
         git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$_zsh_custom/themes/powerlevel10k"
     else
-        info "Powerlevel10k already exists."
+        git -C "$_zsh_custom/themes/powerlevel10k" pull --ff-only
     fi
 
     # 3. install Plugins (install to custom/plugins)
@@ -102,89 +138,84 @@ install_shell() {
     if [ ! -d "$_zsh_custom/plugins/zsh-autosuggestions" ]; then
         info "Cloning zsh-autosuggestions..."
         git clone https://github.com/zsh-users/zsh-autosuggestions "$_zsh_custom/plugins/zsh-autosuggestions"
+    else
+        git -C "$_zsh_custom/plugins/zsh-autosuggestions" pull --ff-only
     fi
 
     # zsh-syntax-highlighting
     if [ ! -d "$_zsh_custom/plugins/zsh-syntax-highlighting" ]; then
         info "Cloning zsh-syntax-highlighting..."
         git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$_zsh_custom/plugins/zsh-syntax-highlighting"
+    else
+        git -C "$_zsh_custom/plugins/zsh-syntax-highlighting" pull --ff-only
     fi
 
     # 4. install Nerd Fonts (maintain original Brew method, this is the fastest way)
-    brew install font-meslo-lg-nerd-font font-fira-code-nerd-font || true
+    install_packages --cask font-meslo-lg-nerd-font font-fira-code-nerd-font
 
     # 5. configuration file Symlink
     mkdir -p ~/.config
-    sym_link $ROOT_PATH/zsh/.zshrc ~/.zshrc
-    sym_link $ROOT_PATH/zsh/.zfuncs ~/.zfuncs
-    sym_link $ROOT_PATH/zsh/.zcustom ~/.zcustom
-    sym_link $ROOT_PATH/zsh/.p10k.zsh ~/.p10k.zsh
-}
-
-install_terminal() {
-    # install alacritty terminal and terminfo
-    # #NOTE as of v0.9.0 release, M1 builds are not available through
-    # brew, so a manual clone of alacritty and 'make app', and copy to /Applications is required
-    # brew install alacritty || true
-    ensure downloader https://raw.githubusercontent.com/alacritty/alacritty/master/extra/alacritty.info /Applications/Alacritty.app/Contents/Resources/alacritty.info
-    info "setting terminal tic, sudo required"
-    sudo tic -xe alacritty,alacritty-direct /Applications/Alacritty.app/Contents/Resources/alacritty.info
-    info "configuring terminal"
-    sym_link $ROOT_PATH/.alacritty.yml ~/.alacritty.yml
+    sym_link "$ROOT_PATH/zsh/.zshrc" "$HOME/.zshrc"
+    sym_link "$ROOT_PATH/zsh/.zfuncs" "$HOME/.zfuncs"
+    sym_link "$ROOT_PATH/zsh/.zcustom" "$HOME/.zcustom"
+    sym_link "$ROOT_PATH/zsh/.p10k.zsh" "$HOME/.p10k.zsh"
 }
 
 install_neovim() {
-    brew install neovim || true
-    info "configuring neovim"
-
-    mkdir -p ~/.config
-    sym_link $ROOT_PATH/nvim ~/.config/nvim
-
-    nvim --headless +PlugInstall +PlugClean +PlugUpdate +UpdateRemotePlugins +qall
-    # undo history path
-    mkdir -p ~/.vimdid
+    install_packages --formula neovim
 }
 
 install_tools() {
-    brew tap kdash-rs/kdash
     brew tap hashicorp/tap
-
-    brew install \
-        ripgrep fzf fd rg bat eza zoxide jq grex hashicorp/tap/vault \
-        zellij just \
-        protobuf helm gh libpq google-cloud-sdk visual-studio-code \
-        kubectl kubectx || true
-    
-    brew install --cask rectangle
-
-    # # install google cloud components
-    # gcloud components install gke-gcloud-auth-plugin
-
-    sym_link $ROOT_PATH/zellij ~/.config/zellij
-
-    # install docker
-    brew install docker
-    brew install docker-compose
-
-    # setup docker compose plugin (configure ~/.docker/config.json)
-    mkdir -p ~/.docker
-    [ ! -f ~/.docker/config.json ] && echo "{}" > ~/.docker/config.json
-
-    local _plugin_path="$(brew --prefix)/lib/docker/cli-plugins"
-    local _config_file="$HOME/.docker/config.json"
-
-    if check_cmd jq; then
-         # Add plugin path to cliPluginsExtraDirs if not present
-         jq --arg path "$_plugin_path" \
-            '.cliPluginsExtraDirs = ((.cliPluginsExtraDirs // []) + [$path] | unique)' \
-            "$_config_file" > "$_config_file.tmp" && mv "$_config_file.tmp" "$_config_file"
-         info "Updated docker config.json with cliPluginsExtraDirs"
-    else
-         echo "jq not found, skipping docker config update. Please install jq."
+    # Homebrew 7 requires explicit trust for third-party packages.
+    if brew help trust >/dev/null 2>&1; then
+        brew trust --formula hashicorp/tap/vault
     fi
 
-    # install colima
-    brew install colima
+    install_packages --formula \
+        ripgrep fzf fd bat eza zoxide jq yq grex hashicorp/tap/vault \
+        tmux just \
+        protobuf helm gh libpq kubernetes-cli kubectx \
+        docker docker-compose colima
+    
+    install_packages --cask gcloud-cli visual-studio-code rectangle
+
+    sym_link "$ROOT_PATH/tmux/tmux.conf" "$HOME/.tmux.conf"
+
+    configure_docker
+}
+
+configure_docker() {
+    require jq
+    local config_dir="${DOCKER_CONFIG:-$HOME/.docker}"
+    local config_file="$config_dir/config.json"
+    if [[ -L "$config_file" ]]; then
+        [[ -f "$config_file" ]] || err "Docker configuration link must resolve to a regular file: $config_file"
+        config_file=$(realpath "$config_file")
+        config_dir=$(dirname -- "$config_file")
+    fi
+    local plugin_path
+    plugin_path="$(brew --prefix)/lib/docker/cli-plugins"
+    mkdir -p "$config_dir"
+    local input=/dev/stdin
+    if [[ -e "$config_file" ]]; then
+        input="$config_file"
+    fi
+    local temporary
+    temporary=$(mktemp "$config_dir/config.json.XXXXXX")
+    if ! jq -e -s --arg path "$plugin_path" '
+        if length != 1 then error("Expected one Docker configuration object")
+        else .[0] end |
+        if type != "object" then error("Docker config must be an object")
+        elif .cliPluginsExtraDirs != null and (.cliPluginsExtraDirs | type) != "array" then
+            error("cliPluginsExtraDirs must be an array")
+        else .cliPluginsExtraDirs = ((.cliPluginsExtraDirs // []) + [$path] | unique)
+        end' "$input" <<< '{}' > "$temporary"; then
+        rm -f "$temporary"
+        err "Invalid Docker configuration: $config_file"
+    fi
+    mv "$temporary" "$config_file"
+    info "Updated Docker CLI plugin directory"
 }
 
 uninstall_neovim() {
@@ -195,7 +226,7 @@ uninstall_neovim() {
 ## Utils
 
 info() {
-    printf "\r  [ \033[00;34m..\033[0m ] $1\n"
+    printf '\r  [ \033[00;34m..\033[0m ] %s\n' "$1"
 }
 
 ok() {
@@ -203,8 +234,8 @@ ok() {
 }
 
 err() {
-    printf "\r\033[2K  [\033[0;31mERR\033[0m] $1\n"
-    exit
+    printf '\r\033[2K  [\033[0;31mERR\033[0m] %s\n' "$1" >&2
+    exit 1
 }
 
 ensure() {
@@ -232,18 +263,18 @@ append_not_exists() {
 }
 
 sym_link() {
-    if [[ -f $2 ]]; then
-        if [ -e "$2" ]; then
-            if [ "$(readlink "$2")" = "$1" ]; then
-                info "Symlink skipped $1"
-                return 0
-            else
-                mv "$2" "$2.bak"
-                info "Symlink moved $2 to $2.bak"
-            fi
-        fi
+    [[ -e "$1" ]] || err "Missing symlink source: $1"
+    if [[ -L "$2" && "$(readlink "$2")" == "$1" ]]; then
+        info "Symlink skipped $1"
+        return 0
     fi
-    ln -sf "$1" "$2"
+    mkdir -p "$(dirname -- "$2")"
+    if [[ -e "$2" || -L "$2" ]]; then
+        [[ ! -e "$2.bak" && ! -L "$2.bak" ]] || err "Backup already exists: $2.bak"
+        mv "$2" "$2.bak"
+        info "Symlink moved $2 to $2.bak"
+    fi
+    ln -s "$1" "$2"
     info "Symlinked $1 to $2"
 }
 
@@ -266,4 +297,6 @@ downloader() {
     fi
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

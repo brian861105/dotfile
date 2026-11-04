@@ -10,7 +10,11 @@ fi
 # 2. Environment & Path Settings (Pre-OMZ)
 # ==============================================================================
 # Load Homebrew Environment first so plugins can detect installed tools
-eval $(/opt/homebrew/bin/brew shellenv)
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [[ -x /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+fi
 
 # Global Editors
 export EDITOR='vim'
@@ -86,15 +90,20 @@ autoload -Uz k8s-pod-forcedelete
 # --- External Tool Integrations (Manual Loading) ---
 
 # Google Cloud SDK
-if [ -f "/opt/homebrew/share/google-cloud-sdk/path.zsh.inc" ]; then
-    source "/opt/homebrew/share/google-cloud-sdk/path.zsh.inc"
-    source "/opt/homebrew/share/google-cloud-sdk/completion.zsh.inc"
+if [ -f "$HOMEBREW_PREFIX/share/google-cloud-sdk/path.zsh.inc" ]; then
+    source "$HOMEBREW_PREFIX/share/google-cloud-sdk/path.zsh.inc"
+    source "$HOMEBREW_PREFIX/share/google-cloud-sdk/completion.zsh.inc"
 fi
 
 # NVM (Node Version Manager)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-[ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    source "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+elif [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
+    source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+    [ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && source "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+fi
 
 # --- Key Bindings ---
 bindkey "^ " autosuggest-accept
